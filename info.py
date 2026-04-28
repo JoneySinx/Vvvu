@@ -42,6 +42,11 @@ if not API_ID or not API_HASH or not BOT_TOKEN:
 BOT_ID = int(BOT_TOKEN.split(":")[0])
 PORT = int(environ.get("PORT", 80))
 
+# वेब पैनल के लिए (info.py में जोड़ें)
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "yourx")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin143")
+
+
 
 # ─────────────────────────────────────────────
 # 👑 ADMINS
