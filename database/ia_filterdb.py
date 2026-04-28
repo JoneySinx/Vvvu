@@ -68,14 +68,6 @@ async def db_count_documents():
 
 # ─────────────────────────────────────────────────────────
 # 💾 SAVE FILE
-#
-# ✅ _id = unpack_new_file_id() से बना encoded ID
-#    यह ID खुद एक valid Telegram file_id है।
-#    access_hash pack होने की वजह से channel छोड़ने के बाद भी काम करती है।
-#    इसीलिए plugin doc["_id"] को ही file_id की तरह use करता है — सही है।
-#
-# ✅ file_type अलग से store करो ताकि plugin जाने:
-#    send_document / send_video / send_audio में से क्या call करना है
 # ─────────────────────────────────────────────────────────
 async def save_file(media, collection_type="primary"):
     try:
@@ -87,17 +79,14 @@ async def save_file(media, collection_type="primary"):
         f_name  = re.sub(r"@\w+|(_|\-|\.|\+)", " ", str(media.file_name or "")).strip()
         caption = re.sub(r"@\w+|(_|\-|\.|\+)", " ", str(media.caption  or "")).strip()
 
-        # ✅ FIX: media.file_type Hydrogram में exist नहीं करता
-        #    type(media).__name__ से class का नाम मिलता है → "Video", "Document", "Audio"
-        #    .lower() करके store करो → "video", "document", "audio"
         file_type = type(media).__name__.lower()
 
         doc = {
-            "_id":       file_id,     # ✅ Valid Telegram file_id (encoded with access_hash)
+            "_id":       file_id,     
             "file_name": f_name,
             "file_size": media.file_size,
             "caption":   caption,
-            "file_type": file_type,   # ✅ "video" / "document" / "audio"
+            "file_type": file_type,   
         }
 
         col    = COLLECTIONS.get(collection_type, primary)
@@ -116,13 +105,6 @@ async def save_file(media, collection_type="primary"):
 
 # ─────────────────────────────────────────────────────────
 # 🔍 REGEX BUILDER
-#
-# ✅ पुराने working bot से लिया गया — Regex search, Text search से
-#    ज्यादा accurate है file names के लिए।
-#
-#    "Pushpa 2"    → r'pushpa.*[\s\.\+\-_]2'
-#    "pushpa"      → r'(\b|[\.\+\-_])pushpa(\b|[\.\+\-_])'
-#    ""            → r'.'  (सब कुछ)
 # ─────────────────────────────────────────────────────────
 def _build_regex(query: str):
     query = query.strip()
@@ -140,16 +122,19 @@ def _build_regex(query: str):
 
 # ─────────────────────────────────────────────────────────
 # 🔍 SINGLE COLLECTION SEARCH (INTERNAL)
-#
-# ✅ Regex filter use करो (पुराने bot की तरह — accurate)
-# ✅ find + count parallel (नए bot की तरह — fast)
-# ✅ doc["file_id"] = doc["_id"]  ← _id IS a valid Telegram file_id
+# ✅ BUG FIX: Language filter को सीधे Database क्वेरी में डाला गया है
 # ─────────────────────────────────────────────────────────
-async def _search(col, regex, offset: int, limit: int):
+async def _search(col, regex, offset: int, limit: int, lang=None):
     if USE_CAPTION_FILTER:
         flt = {"$or": [{"file_name": regex}, {"caption": regex}]}
     else:
         flt = {"file_name": regex}
+
+    # 🛠 FIX 1: Language Filter MongoDB के अंदर ही एप्लाई होगा
+    if lang:
+        lang_regex = re.compile(lang, re.IGNORECASE)
+        # यह सुनिश्चित करेगा कि फाइल नेम में क्वेरी (regex) और भाषा (lang) दोनों हों
+        flt = {"$and": [flt, {"file_name": lang_regex}]}
 
     try:
         async def _fetch():
@@ -157,7 +142,7 @@ async def _search(col, regex, offset: int, limit: int):
             cursor.skip(offset).limit(limit)
             docs = await cursor.to_list(length=limit)
             for doc in docs:
-                doc["file_id"] = doc["_id"]  # ✅ _id is valid Telegram file_id
+                doc["file_id"] = doc["_id"]  
             return docs
 
         async def _count():
@@ -172,9 +157,6 @@ async def _search(col, regex, offset: int, limit: int):
 
 # ─────────────────────────────────────────────────────────
 # 🚀 PUBLIC SEARCH API — TRUE CASCADE
-#
-#  Primary → (मिला? return) → Cloud → (मिला? return) → Archive
-#  कहीं न मिले → Empty return
 # ─────────────────────────────────────────────────────────
 async def get_search_results(
     query,
@@ -195,31 +177,29 @@ async def get_search_results(
     if collection_type == "all":
         cascade = [("primary", primary), ("cloud", cloud), ("archive", archive)]
         for src, col in cascade:
-            docs, cnt = await _search(col, regex, offset, max_results)
+            # 🛠 lang वेरिएबल को _search फंक्शन में पास किया गया
+            docs, cnt = await _search(col, regex, offset, max_results, lang)
             if docs:
                 results    = docs
                 total      = cnt
                 actual_src = src
-                break  # ✅ मिल गया → रुको, बाकी collections छोड़ो
+                break  
 
     # ── Single collection ──
     elif collection_type in COLLECTIONS:
         col       = COLLECTIONS[collection_type]
-        docs, cnt = await _search(col, regex, offset, max_results)
+        docs, cnt = await _search(col, regex, offset, max_results, lang)
         results   = docs
         total     = cnt
 
     # ── Unknown → Primary default ──
     else:
-        docs, cnt = await _search(primary, regex, offset, max_results)
+        docs, cnt = await _search(primary, regex, offset, max_results, lang)
         results   = docs
         total     = cnt
 
-    # ── Language filter ──
-    if lang and results:
-        lang    = lang.lower()
-        results = [f for f in results if lang in f.get("file_name", "").lower()]
-        total   = len(results)
+    # 🛠 FIX: Python का लैंग्वेज फ़िल्टर यहाँ से हटा दिया गया है 
+    # क्योंकि अब डेटाबेस खुद छँटी हुई (filtered) फाइल्स भेज रहा है।
 
     next_offset = offset + max_results
     next_offset = "" if next_offset >= total else next_offset
@@ -257,17 +237,13 @@ async def delete_files(query, collection_type="all"):
 
 # ─────────────────────────────────────────────────────────
 # 📂 GET FILE DETAILS
-#
-# ✅ _id से file ढूंढो — यही _id plugin को मिलता है
-#    doc["file_id"] = doc["_id"] set करो ताकि plugin सीधे use कर सके
 # ─────────────────────────────────────────────────────────
 async def get_file_details(file_id):
     try:
-        # Cascade: Primary → Cloud → Archive (sequential — पहले मिले वो return)
         for col in [primary, cloud, archive]:
             doc = await col.find_one({"_id": file_id})
             if doc:
-                doc["file_id"] = doc["_id"]  # ✅ Plugin compatibility
+                doc["file_id"] = doc["_id"]  
                 return doc
         return None
     except Exception as e:
@@ -276,11 +252,6 @@ async def get_file_details(file_id):
 
 # ─────────────────────────────────────────────────────────
 # 🔑 FILE ID ENCODING UTILS
-#
-# unpack_new_file_id() से जो ID बनती है वो:
-#   1. Unique key है (duplicate detection के लिए)
-#   2. Valid Telegram file_id है (file भेजने के लिए)
-#   3. access_hash include है (channel छोड़ने के बाद भी काम करे)
 # ─────────────────────────────────────────────────────────
 def encode_file_id(s: bytes) -> str:
     r, n = b"", 0
