@@ -26,6 +26,7 @@ async def root_route_handler(request):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Fast Finder | Streaming & Downloads</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
         <style>
             body {{
                 background-color: #0f0f1a;
@@ -37,7 +38,31 @@ async def root_route_handler(request):
                 justify-content: center;
                 height: 100vh;
                 margin: 0;
+                position: relative;
             }}
+            
+            /* 🔐 ADMIN LOGIN BUTTON (Top Right) */
+            .admin-login-btn {{
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background: rgba(255, 255, 255, 0.1);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 10px;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: bold;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                transition: 0.3s;
+                z-index: 100;
+            }}
+            .admin-login-btn:hover {{
+                background: #00d2ff;
+                color: #0f0f1a;
+                box-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+            }}
+
             .container {{
                 text-align: center;
                 background: #1a1a2e;
@@ -96,15 +121,15 @@ async def root_route_handler(request):
             }}
             
             .footer {{ margin-top: 25px; font-size: 13px; color: #555; }}
-            a {{ text-decoration: none; color: #3a7bd5; transition: color 0.2s; }}
-            a:hover {{ color: #00d2ff; }}
-            
-            /* Hidden Admin Link */
-            .secret-admin {{ color: #1a1a2e; cursor: default; }}
-            .secret-admin:hover {{ color: #333; cursor: pointer; }}
+            a.bot-link {{ text-decoration: none; color: #3a7bd5; transition: color 0.2s; }}
+            a.bot-link:hover {{ color: #00d2ff; }}
         </style>
     </head>
     <body>
+        <a href="/admin" class="admin-login-btn">
+            <i class="fas fa-user-shield"></i> Admin Login
+        </a>
+
         <div class="container">
             <h1>⚡ Fast Finder</h1>
             <p>Search Movies, Series & Anime Instantly</p>
@@ -116,8 +141,7 @@ async def root_route_handler(request):
             <button onclick="startSearch()">🔍 Search on Telegram</button>
             
             <div class="footer">
-                Powered by <a href="https://t.me/{bot_username}">Auto Filter Bot</a> 
-                | <a href="/admin" class="secret-admin">Admin</a>
+                Powered by <a href="https://t.me/{bot_username}" class="bot-link">Auto Filter Bot</a>
             </div>
         </div>
 
@@ -125,7 +149,6 @@ async def root_route_handler(request):
             function startSearch() {{
                 var query = document.getElementById("searchInput").value;
                 if(query) {{
-                    // Telegram पर रीडायरेक्ट करेगा जहाँ यूज़र सीधे सर्च कर सकता है
                     window.location.href = "https://t.me/{bot_username}?start=" + encodeURIComponent(query);
                 }} else {{
                     window.location.href = "https://t.me/{bot_username}";
@@ -187,7 +210,7 @@ async def media_download(request, message_id: int):
 
         file_size = media.file_size
         
-        # 2. ✅ FIX: Smart Filename Generator (बचाएगा .jpg वाले बग से)
+        # 2. ✅ FIX: Smart Filename Generator
         file_name = getattr(media, 'file_name', None)
         if not file_name:
             if getattr(media_msg, 'video', None):
