@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 class Database:
     
-    def __init__(self):
+        def __init__(self):
         # Motor Client (Non-Blocking)
         self.client = motor.motor_asyncio.AsyncIOMotorClient(
             DATABASE_URL,
@@ -38,8 +38,7 @@ class Database:
         self.settings = self.db.Settings
         self.warns = self.db.Warns  
 
-        # 🚀 बॉट स्टार्ट होने पर इंडेक्स बनाना सुनिश्चित करें (Fast Searching)
-        asyncio.create_task(self._ensure_indexes())
+        # ❌ यहाँ से asyncio.create_task(self._ensure_indexes()) को हटा दिया गया है।
 
     async def _ensure_indexes(self):
         """Creates indexes on 'id' for ultra-fast database querying."""
