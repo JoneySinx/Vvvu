@@ -217,6 +217,64 @@ async def delete_all_cmd(client, message):
         reply_markup=InlineKeyboardMarkup(btn)
     )
 
+# ─────────────────────────
+# /link COMMAND (PREMIUM & ADMIN ONLY)
+# ─────────────────────────
+@Client.on_message(filters.command("link"))
+async def link_generator(client, message):
+    
+    # 1. PREMIUM & ADMIN CHECK 
+    if IS_PREMIUM and not await is_premium(message.from_user.id, client):
+        btn = [[InlineKeyboardButton("💎 Buy Premium", callback_data="activate_plan")]]
+        return await message.reply(
+            "🔒 **Premium Feature**\n\nOnly Admins and Premium Users can generate direct links.\nClick below to upgrade!",
+            reply_markup=InlineKeyboardMarkup(btn),
+            quote=True
+        )
+
+    # 2. Check if user replied to a message
+    if not message.reply_to_message:
+        return await message.reply("❌ **Please reply to a video or file to generate a link.**", quote=True)
+
+    # 3. Check if replied message has media
+    media = message.reply_to_message.document or message.reply_to_message.video or message.reply_to_message.audio
+    if not media:
+        return await message.reply("❌ **No media found in the replied message.**", quote=True)
+
+    # 4. Send processing message
+    msg = await message.reply("⏳ **Generating Link...**", quote=True)
+
+    try:
+        # Copy file to BIN_CHANNEL
+        copied_msg = await message.reply_to_message.copy(BIN_CHANNEL)
+        
+        # Generate links
+        watch_url = f"{URL}watch/{copied_msg.id}"
+        download_url = f"{URL}download/{copied_msg.id}"
+        
+        # Create buttons
+        btn = [
+            [
+                InlineKeyboardButton("↗️ WATCH ONLINE", url=watch_url),
+                InlineKeyboardButton("↗️ FAST DOWNLOAD", url=download_url)
+            ],
+            [
+                InlineKeyboardButton("❌ CLOSE ❌", callback_data=f"close_{message.from_user.id}")
+            ]
+        ]
+        
+        # Edit original message to show links
+        await msg.edit_text(
+            text="<i><b>Here is your link</b></i>",
+            reply_markup=InlineKeyboardMarkup(btn)
+        )
+        
+    except Exception as e:
+        await msg.edit_text(f"❌ **Error generating link:** `{e}`")
+
+# ─────────────────────────
+# CALLBACKS
+# ─────────────────────────
 # ✅ CRITICAL FIX: Admin Verification in Callback
 @Client.on_callback_query(filters.regex(r"^confirm_del#"))
 async def confirm_del(client, query):
@@ -229,9 +287,6 @@ async def confirm_del(client, query):
     count = await delete_files("*", storage)
     await query.message.edit(f"✅ Deleted `{count}` files from `{storage}`.")
 
-# ─────────────────────────
-# CALLBACKS
-# ─────────────────────────
 @Client.on_callback_query(filters.regex("^myplan$"))
 async def myplan_cb(client, query):
     if not IS_PREMIUM: return await query.answer("Premium disabled.", show_alert=True)
