@@ -7,6 +7,17 @@ from database.ia_filterdb import COLLECTIONS
 
 search_routes = web.RouteTableDef()
 
+# DB में जो भी field name हो, सब try करेंगे
+FILE_ID_FIELDS = ["file_ref", "file_id", "tg_file_id", "id", "media_id"]
+
+def extract_file_id(doc):
+    """Document से valid file_id निकालो — सभी common field names try करके"""
+    for field in FILE_ID_FIELDS:
+        val = doc.get(field)
+        if val and str(val).strip() not in ("None", "", "null"):
+            return str(val).strip()
+    return None
+
 def is_admin_logged_in(request):
     session_id = request.cookies.get('admin_session')
     if not hasattr(temp, 'ADMIN_SESSIONS'): return False
@@ -29,18 +40,9 @@ async def api_search_handler(request):
 
     regex = re.compile(query, re.IGNORECASE)
 
-    # ✅ FIX: count और fetch दोनों में None/empty file_id को DB level पर filter करो
-    filter_query = {
-        "$and": [
-            {"file_name": regex},
-            {
-                "$or": [
-                    {"file_ref": {"$exists": True, "$nin": [None, "", "None"]}},
-                    {"file_id":  {"$exists": True, "$nin": [None, "", "None"]}}
-                ]
-            }
-        ]
-    }
+    # ✅ Simple filter — सिर्फ file_name check करो
+    # file_id filtering DB level पर नहीं, Python level पर होगी
+    filter_query = {"file_name": regex}
 
     results = []
     total_count = 0
@@ -54,24 +56,30 @@ async def api_search_handler(request):
     )
 
     for col_name, col in cols_to_search.items():
-        # अब count सिर्फ valid files का आएगा
         count = await col.count_documents(filter_query)
         total_count += count
 
         if len(all_matches) >= limit:
             continue
 
-        skip_amt = max(0, offset - len(all_matches))
-        cursor = col.find(filter_query).sort('_id', -1).skip(skip_amt).limit(limit)
+        # ✅ Buffer: ज़्यादा docs fetch करो ताकि None वाले skip होने पर भी limit पूरी हो
+        buffer_size = (limit - len(all_matches)) * 5 + 50
+        cursor = col.find(filter_query).sort('_id', -1).skip(offset).limit(buffer_size)
 
         async for doc in cursor:
+            file_id = extract_file_id(doc)
+            if not file_id:
+                continue  # valid file_id नहीं है, skip
+
             doc['source_col'] = col_name.capitalize()
+            doc['_resolved_file_id'] = file_id
             all_matches.append(doc)
+
             if len(all_matches) >= limit:
                 break
 
     for doc in all_matches[:limit]:
-        target_id = doc.get("file_ref") or doc.get("file_id")
+        target_id = doc['_resolved_file_id']
         results.append({
             "name": doc.get("file_name", "Unknown File"),
             "size": get_size(doc.get("file_size", 0)),
