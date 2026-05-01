@@ -43,21 +43,27 @@ async def api_search_handler(request):
         total_count += count
         
         if len(all_matches) < needed_docs:
-            cursor = col.find(filter_query).sort('_id', -1).limit(needed_docs)
+            # ✅ FIX: हम ज़रूरत से ज़्यादा फाइलें (buffer) निकालेंगे, ताकि खराब फाइलों को स्किप करने पर भी पेज खाली न हो
+            cursor = col.find(filter_query).sort('_id', -1).limit(needed_docs + 100)
             async for doc in cursor:
+                t_id = doc.get("file_ref") or doc.get("file_id")
+                
+                # ✅ अगर फाइल आईडी None या खाली है, तो उसे तुरंत हटा दो और आगे बढ़ो
+                if not t_id or str(t_id).strip() == 'None':
+                    continue
+                    
                 doc['source_col'] = col_name.capitalize() 
                 all_matches.append(doc)
+                
+                # जैसे ही हमें 20 सही फाइलें मिल जाएं, लूप रोक दो
+                if len(all_matches) >= needed_docs:
+                    break
 
+    # सही फाइलों की लिस्ट में से पेज के हिसाब से फाइलें काटें
     page_docs = all_matches[offset : offset + limit]
     
     for doc in page_docs:
-        # ✅ BUG FIX: 'or' का इस्तेमाल किया है। अगर file_ref 'None' हुआ, तो यह file_id ले लेगा।
         target_id = doc.get("file_ref") or doc.get("file_id")
-        
-        # अगर डेटाबेस में फाइल की ID ही गायब है, तो उसे लिस्ट में मत दिखाओ (ताकि एरर न आए)
-        if not target_id:
-            continue
-
         results.append({
             "name": doc.get("file_name", "Unknown File"),
             "size": get_size(doc.get("file_size", 0)),
@@ -67,7 +73,8 @@ async def api_search_handler(request):
             "download": f"/setup_stream?file_id={target_id}&mode=download"
         })
         
-    next_offset = (offset + limit) if (offset + limit) < total_count else ""
+    # अगर और सही फाइलें बची हैं, तभी Next बटन दिखाओ
+    next_offset = (offset + limit) if (offset + limit) < total_count and len(results) == limit else ""
 
     return web.json_response({
         "results": results,
@@ -81,7 +88,6 @@ async def setup_stream_handler(request):
     file_id = request.query.get('file_id')
     mode = request.query.get('mode', 'watch')
     
-    # ✅ FIX: अगर किसी वजह से फिर भी None आ जाए तो सर्वर क्रैश नहीं होगा
     if not file_id or file_id == 'None': 
         return web.Response(text="❌ Error: File ID is completely missing in Database!", status=400)
         
