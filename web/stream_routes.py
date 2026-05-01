@@ -13,7 +13,7 @@ routes = web.RouteTableDef()
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────
-# 🏠 ROOT ROUTE (FAST FINDER UI)
+# 🏠 ROOT ROUTE (PREMIUM FAST FINDER UI)
 # ─────────────────────────────────────────────
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
@@ -25,129 +25,212 @@ async def root_route_handler(request):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Fast Finder | Streaming & Downloads</title>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+        <title>Fast Finder | Streaming Hub</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
         <style>
+            :root {{
+                --primary: #00f2fe;
+                --secondary: #4facfe;
+                --dark-bg: #0b0c10;
+                --glass-bg: rgba(17, 25, 40, 0.75);
+                --glass-border: rgba(255, 255, 255, 0.125);
+            }}
+            
+            * {{ margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }}
+            
             body {{
-                background-color: #0f0f1a;
-                color: #e0e0e0;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: var(--dark-bg);
+                color: #ffffff;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                height: 100vh;
-                margin: 0;
+                min-height: 100vh;
                 position: relative;
-            }}
-            
-            /* 🔐 ADMIN LOGIN BUTTON (Top Right) */
-            .admin-login-btn {{
-                position: absolute;
-                top: 20px;
-                right: 20px;
-                background: rgba(255, 255, 255, 0.1);
-                color: white;
-                padding: 10px 15px;
-                border-radius: 10px;
-                text-decoration: none;
-                font-size: 14px;
-                font-weight: bold;
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                transition: 0.3s;
-                z-index: 100;
-            }}
-            .admin-login-btn:hover {{
-                background: #00d2ff;
-                color: #0f0f1a;
-                box-shadow: 0 0 15px rgba(0, 210, 255, 0.5);
+                overflow: hidden;
             }}
 
-            .container {{
-                text-align: center;
-                background: #1a1a2e;
-                padding: 40px;
-                border-radius: 20px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-                width: 90%;
-                max-width: 450px;
+            /* Animated Background Blob */
+            .bg-blob {{
+                position: absolute;
+                width: 600px;
+                height: 600px;
+                background: linear-gradient(180deg, rgba(79, 172, 254, 0.3) 0%, rgba(0, 242, 254, 0.1) 100%);
+                filter: blur(100px);
+                border-radius: 50%;
+                animation: float 10s infinite ease-in-out alternate;
+                z-index: 0;
             }}
-            h1 {{
-                margin: 0 0 10px 0;
-                font-size: 2.5rem;
-                background: -webkit-linear-gradient(45deg, #00d2ff, #3a7bd5);
+            @keyframes float {{
+                0% {{ transform: translate(-10%, -10%) scale(1); }}
+                100% {{ transform: translate(10%, 10%) scale(1.1); }}
+            }}
+
+            /* Admin Button */
+            .admin-login-btn {{
+                position: absolute;
+                top: 25px;
+                right: 30px;
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 30px;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 600;
+                border: 1px solid var(--glass-border);
+                transition: all 0.3s ease;
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }}
+            .admin-login-btn:hover {{
+                background: linear-gradient(90deg, var(--secondary), var(--primary));
+                box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+                transform: translateY(-2px);
+                border-color: transparent;
+            }}
+
+            /* Glassmorphism Container */
+            .glass-panel {{
+                background: var(--glass-bg);
+                backdrop-filter: blur(16px) saturate(180%);
+                -webkit-backdrop-filter: blur(16px) saturate(180%);
+                border: 1px solid var(--glass-border);
+                padding: 50px 40px;
+                border-radius: 24px;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+                width: 90%;
+                max-width: 500px;
+                text-align: center;
+                z-index: 10;
+                position: relative;
+            }}
+
+            .icon-wrapper {{
+                font-size: 50px;
+                background: -webkit-linear-gradient(45deg, var(--primary), var(--secondary));
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
+                margin-bottom: 15px;
             }}
-            p {{ color: #a0a0b0; margin-bottom: 30px; }}
+
+            h1 {{
+                font-size: 2.2rem;
+                font-weight: 700;
+                margin-bottom: 10px;
+                letter-spacing: 1px;
+            }}
             
-            .search-box {{
+            p.subtitle {{
+                color: #a0aab5;
+                font-size: 15px;
+                margin-bottom: 35px;
+                font-weight: 300;
+            }}
+
+            .search-wrapper {{
                 position: relative;
-                width: 100%;
+                margin-bottom: 25px;
+            }}
+            .search-wrapper i {{
+                position: absolute;
+                left: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #a0aab5;
+                font-size: 18px;
             }}
             input[type="text"] {{
                 width: 100%;
-                padding: 15px 20px;
-                box-sizing: border-box;
-                border-radius: 30px;
-                border: 2px solid #333;
-                background-color: #16213e;
+                padding: 18px 20px 18px 50px;
+                border-radius: 16px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: rgba(0, 0, 0, 0.3);
                 color: white;
                 font-size: 16px;
                 outline: none;
-                transition: border-color 0.3s, box-shadow 0.3s;
+                transition: all 0.3s ease;
             }}
             input[type="text"]:focus {{
-                border-color: #3a7bd5;
-                box-shadow: 0 0 10px rgba(58, 123, 213, 0.4);
+                border-color: var(--primary);
+                background: rgba(0, 0, 0, 0.5);
+                box-shadow: inset 0 0 0 1px var(--primary), 0 0 15px rgba(0, 242, 254, 0.2);
             }}
-            
-            button {{
-                margin-top: 20px;
+
+            button.search-btn {{
                 width: 100%;
-                padding: 15px;
-                border-radius: 30px;
+                padding: 16px;
+                border-radius: 16px;
                 border: none;
-                background: linear-gradient(90deg, #3a7bd5, #00d2ff);
+                background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
                 color: white;
                 font-size: 18px;
-                font-weight: bold;
+                font-weight: 600;
                 cursor: pointer;
-                transition: transform 0.2s, box-shadow 0.2s;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
             }}
-            button:hover {{
-                transform: translateY(-2px);
-                box-shadow: 0 5px 20px rgba(0, 210, 255, 0.4);
+            button.search-btn:hover {{
+                transform: translateY(-3px);
+                box-shadow: 0 10px 25px rgba(79, 172, 254, 0.4);
             }}
-            
-            .footer {{ margin-top: 25px; font-size: 13px; color: #555; }}
-            a.bot-link {{ text-decoration: none; color: #3a7bd5; transition: color 0.2s; }}
-            a.bot-link:hover {{ color: #00d2ff; }}
+            button.search-btn:active {{
+                transform: translateY(1px);
+            }}
+
+            .footer-text {{
+                margin-top: 30px;
+                font-size: 13px;
+                color: #6b7280;
+                font-weight: 300;
+            }}
+            .footer-text a {{
+                color: var(--primary);
+                text-decoration: none;
+                font-weight: 600;
+                transition: opacity 0.2s;
+            }}
+            .footer-text a:hover {{ opacity: 0.8; }}
         </style>
     </head>
     <body>
+        <div class="bg-blob"></div>
+
         <a href="/admin" class="admin-login-btn">
-            <i class="fas fa-user-shield"></i> Admin Login
+            <i class="fas fa-shield-alt"></i> Admin Panel
         </a>
 
-        <div class="container">
-            <h1>⚡ Fast Finder</h1>
-            <p>Search Movies, Series & Anime Instantly</p>
+        <div class="glass-panel">
+            <div class="icon-wrapper">
+                <i class="fas fa-bolt"></i>
+            </div>
+            <h1>Fast Finder</h1>
+            <p class="subtitle">Search Movies, Series & Anime Instantly</p>
             
-            <div class="search-box">
-                <input type="text" id="searchInput" placeholder="Type name here (e.g. Pushpa 2)...">
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Enter movie name (e.g. Iron Man)..." autocomplete="off">
             </div>
             
-            <button onclick="startSearch()">🔍 Search on Telegram</button>
+            <button class="search-btn" onclick="startSearch()">
+                Explore on Telegram <i class="fas fa-arrow-right"></i>
+            </button>
             
-            <div class="footer">
-                Powered by <a href="https://t.me/{bot_username}" class="bot-link">Auto Filter Bot</a>
+            <div class="footer-text">
+                Powered by <a href="https://t.me/{bot_username}">Auto Filter Bot</a>
             </div>
         </div>
 
         <script>
             function startSearch() {{
-                var query = document.getElementById("searchInput").value;
+                var query = document.getElementById("searchInput").value.trim();
                 if(query) {{
                     window.location.href = "https://t.me/{bot_username}?start=" + encodeURIComponent(query);
                 }} else {{
