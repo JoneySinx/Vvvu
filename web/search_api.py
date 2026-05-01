@@ -19,7 +19,7 @@ async def api_search_handler(request):
 
     query = request.query.get('q', '').strip()
     offset = request.query.get('offset', '0')
-    target_col = request.query.get('col', 'all').lower() # ✅ नया: कौन सा कलेक्शन खोजना है
+    target_col = request.query.get('col', 'all').lower() 
     
     try: offset = int(offset)
     except: offset = 0
@@ -36,7 +36,6 @@ async def api_search_handler(request):
     needed_docs = offset + limit
     all_matches = []
 
-    # ✅ लॉजिक: अगर 'All' है तो सबमें ढूँढो, वर्ना सिर्फ चुने हुए कलेक्शन में ढूँढो
     cols_to_search = {target_col: COLLECTIONS[target_col]} if target_col in COLLECTIONS else COLLECTIONS
 
     for col_name, col in cols_to_search.items():
@@ -46,19 +45,24 @@ async def api_search_handler(request):
         if len(all_matches) < needed_docs:
             cursor = col.find(filter_query).sort('_id', -1).limit(needed_docs)
             async for doc in cursor:
-                # यह भी सेव कर लें कि फाइल किस कलेक्शन से आई है (ताकि UI में दिख सके)
                 doc['source_col'] = col_name.capitalize() 
                 all_matches.append(doc)
 
     page_docs = all_matches[offset : offset + limit]
     
     for doc in page_docs:
-        target_id = doc.get("file_ref", doc.get("file_id"))
+        # ✅ BUG FIX: 'or' का इस्तेमाल किया है। अगर file_ref 'None' हुआ, तो यह file_id ले लेगा।
+        target_id = doc.get("file_ref") or doc.get("file_id")
+        
+        # अगर डेटाबेस में फाइल की ID ही गायब है, तो उसे लिस्ट में मत दिखाओ (ताकि एरर न आए)
+        if not target_id:
+            continue
+
         results.append({
             "name": doc.get("file_name", "Unknown File"),
             "size": get_size(doc.get("file_size", 0)),
             "type": doc.get("file_type", "document").upper(),
-            "source": doc.get("source_col", "Unknown"), # ✅ नया: कलेक्शन का नाम
+            "source": doc.get("source_col", "Unknown"), 
             "watch": f"/setup_stream?file_id={target_id}&mode=watch",
             "download": f"/setup_stream?file_id={target_id}&mode=download"
         })
@@ -77,7 +81,10 @@ async def setup_stream_handler(request):
     file_id = request.query.get('file_id')
     mode = request.query.get('mode', 'watch')
     
-    if not file_id: return web.Response(text="Invalid Request", status=400)
+    # ✅ FIX: अगर किसी वजह से फिर भी None आ जाए तो सर्वर क्रैश नहीं होगा
+    if not file_id or file_id == 'None': 
+        return web.Response(text="❌ Error: File ID is completely missing in Database!", status=400)
+        
     try:
         msg = await temp.BOT.send_cached_media(chat_id=BIN_CHANNEL, file_id=file_id)
         if mode == 'download': raise web.HTTPFound(f"/download/{msg.id}")
