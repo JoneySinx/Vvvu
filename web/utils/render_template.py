@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────
-# 🎨 STREAMING TEMPLATE (Video.js - Netflix Premium Look)
+# 🎨 STREAMING TEMPLATE (Real Netflix Premium Look)
 # ─────────────────────────────────────────────
 watch_tmplt = """
 <!DOCTYPE html>
@@ -18,7 +18,7 @@ watch_tmplt = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{heading}</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap">
-    <link href="https://vjs.zencdn.net/8.6.1/video-js.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
     <style>
         :root {{
             --netflix-red: #E50914;
@@ -85,39 +85,10 @@ watch_tmplt = """
             border: 1px solid #333;
         }}
 
-        /* Video.js Custom Netflix Theme */
-        .video-js {{
+        .video-container video {{
             width: 100%;
             height: auto;
-            aspect-ratio: 16 / 9; /* Ensures proper ratio */
-        }}
-        
-        .video-js .vjs-big-play-button {{
-            background-color: rgba(229, 9, 20, 0.8);
-            border: none;
-            border-radius: 50%;
-            width: 80px;
-            height: 80px;
-            line-height: 80px;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }}
-        
-        .video-js:hover .vjs-big-play-button {{
-            background-color: var(--netflix-red);
-        }}
-
-        .video-js .vjs-control-bar {{
-            background-color: rgba(0, 0, 0, 0.7);
-        }}
-
-        .video-js .vjs-play-progress {{
-            background-color: var(--netflix-red);
-        }}
-        
-        .video-js .vjs-volume-level {{
-            background-color: var(--netflix-red);
+            display: block;
         }}
 
         .info-section {{
@@ -131,7 +102,6 @@ watch_tmplt = """
             font-weight: 700;
             margin-bottom: 15px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            word-wrap: break-word;
         }}
 
         .controls-row {{
@@ -168,7 +138,22 @@ watch_tmplt = """
         }}
         .btn-download:hover {{ background-color: rgba(109, 109, 110, 0.4); }}
         
+        .btn-copy {{
+            background-color: transparent;
+            color: var(--text-gray);
+            border: 1px solid var(--text-gray);
+            font-size: 0.9rem;
+            padding: 10px 20px;
+        }}
+        .btn-copy:hover {{ border-color: white; color: white; }}
+
         .icon {{ margin-right: 10px; width: 20px; height: 20px; }}
+
+        /* Custom Plyr Theme */
+        .plyr--video {{
+            --plyr-color-main: var(--netflix-red);
+            --plyr-video-background: #000;
+        }}
 
         /* Toast */
         #toast {{
@@ -191,36 +176,6 @@ watch_tmplt = """
         @keyframes fadein {{ from {{bottom: 0; opacity: 0;}} to {{bottom: 30px; opacity: 1;}} }}
         @keyframes fadeout {{ from {{bottom: 30px; opacity: 1;}} to {{bottom: 0; opacity: 0;}} }}
 
-        /* Double Tap Indicator Animation */
-        .tap-indicator {{
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0,0,0,0.5);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 50%;
-            font-size: 1.5rem;
-            font-weight: bold;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-            z-index: 10;
-        }}
-        
-        .tap-left {{ left: 15%; }}
-        .tap-right {{ right: 15%; }}
-
-        .tap-indicator.show {{
-            opacity: 1;
-            animation: pulse 0.5s ease-out;
-        }}
-
-        @keyframes pulse {{
-            0% {{ transform: translateY(-50%) scale(0.8); opacity: 1; }}
-            100% {{ transform: translateY(-50%) scale(1.2); opacity: 0; }}
-        }}
-
         /* Mobile Responsive */
         @media (max-width: 768px) {{
             .logo {{ font-size: 1.5rem; }}
@@ -239,24 +194,9 @@ watch_tmplt = """
     <div class="hero-container">
         
         <div class="player-box">
-            <video
-                id="my-video"
-                class="video-js vjs-default-skin vjs-big-play-centered"
-                controls
-                preload="auto"
-                poster="https://assets.nflxext.com/ffe/siteui/vlv3/f841d4c7-10e1-40af-bcae-07a3f8dc141a/f6d7434e-d6de-4185-a6d4-c77a2d08737b/US-en-20220502-popsignuptwoweeks-perspective_alpha_website_medium.jpg"
-                data-setup='{{}}'
-            >
+            <video id="player" playsinline poster="https://assets.nflxext.com/ffe/siteui/vlv3/f841d4c7-10e1-40af-bcae-07a3f8dc141a/f6d7434e-d6de-4185-a6d4-c77a2d08737b/US-en-20220502-popsignuptwoweeks-perspective_alpha_website_medium.jpg">
                 <source src="{src}" type="{mime_type}" />
-                <p class="vjs-no-js">
-                    To view this video please enable JavaScript, and consider upgrading to a
-                    web browser that
-                    <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
-                </p>
             </video>
-            
-            <div id="tap-left" class="tap-indicator tap-left">⏪ 10s</div>
-            <div id="tap-right" class="tap-indicator tap-right">10s ⏩</div>
         </div>
 
         <div class="info-section">
@@ -279,51 +219,12 @@ watch_tmplt = """
 
     <div id="toast">Link Copied!</div>
 
-    <script src="https://vjs.zencdn.net/8.6.1/video.min.js"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
     <script>
-        // Initialize Video.js
-        var player = videojs('my-video', {{
-            playbackRates: [0.5, 1, 1.25, 1.5, 2]
-        }});
-
-        // Double Tap to Seek Logic
-        const videoElement = document.querySelector('.player-box');
-        const tapLeftIndicator = document.getElementById('tap-left');
-        const tapRightIndicator = document.getElementById('tap-right');
-        let lastTapTime = 0;
-        const seekAmount = 10; // Seconds to skip
-
-        videoElement.addEventListener('click', function(e) {{
-            const currentTime = new Date().getTime();
-            const tapDelay = currentTime - lastTapTime;
-            
-            // If double tap within 300ms
-            if (tapDelay < 300 && tapDelay > 0) {{
-                const rect = videoElement.getBoundingClientRect();
-                const clickX = e.clientX - rect.left;
-                const halfWidth = rect.width / 2;
-                
-                if (clickX > halfWidth) {{
-                    // Right Side Double Tap (Forward)
-                    let newTime = player.currentTime() + seekAmount;
-                    player.currentTime(newTime);
-                    
-                    // Show indicator
-                    tapRightIndicator.classList.remove('show');
-                    void tapRightIndicator.offsetWidth; // trigger reflow
-                    tapRightIndicator.classList.add('show');
-                }} else {{
-                    // Left Side Double Tap (Rewind)
-                    let newTime = player.currentTime() - seekAmount;
-                    player.currentTime(newTime);
-                    
-                    // Show indicator
-                    tapLeftIndicator.classList.remove('show');
-                    void tapLeftIndicator.offsetWidth; // trigger reflow
-                    tapLeftIndicator.classList.add('show');
-                }}
-            }}
-            lastTapTime = currentTime;
+        const player = new Plyr('#player', {{
+            controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'settings', 'pip', 'fullscreen'],
+            settings: ['speed'],
+            hideControls: true
         }});
 
         function copyLink() {{
